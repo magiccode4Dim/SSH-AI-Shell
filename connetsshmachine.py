@@ -1,5 +1,6 @@
 import paramiko
 import sys
+import time
 
 def ssh_connect(hostname, port, username, password):
     try:
@@ -27,30 +28,33 @@ def ssh_connect(hostname, port, username, password):
         print("Erro na conexão SSH:", str(e))
         sys.exit(1)
 
+def getOutput(channel):
+    while True:
+        if not channel.recv_ready():
+            pass
+        else:
+            output = channel.recv(1024)
+            return output.decode('utf-8')
+
+
+
+
 def interactive_shell(client):
     try:
         # Abre um canal de sessão SSH
         channel = client.invoke_shell()
 
-        print("Conexão SSH aberta. Pressione Ctrl+D para sair.")
+        print("Conexão SSH aberta. Pressione Enter para abrir o Shell.")
 
         while True:
-            # Recebe a entrada do usuário
-            command = input("$ ")
-
+            command = input("(AI::)")
             if command.strip() == 'exit':
                 break
-
             # Envia o comando para o servidor remoto
             channel.send(command.strip() + "\n")
-
-            # Recebe a saída do comando
-            while not channel.recv_ready():
-                pass
-            output = channel.recv(1024).decode()
-
-            # Imprime a saída
-            print(output, end='')
+            time.sleep(2)
+            print(getOutput(channel))
+            
 
     except KeyboardInterrupt:
         print("\nEncerrando conexão SSH...")
@@ -60,10 +64,10 @@ def interactive_shell(client):
 
 if __name__ == "__main__":
     # Informações de conexão SSH
-    hostname = input("Hostname: ")
-    port = int(input("Porta: "))
-    username = input("Username: ")
-    password = input("Password: ")
+    hostname = "localhost" #input("Hostname: ")
+    port = 22 #int(input("Porta: "))
+    username = "nany" #input("Username: ")
+    password = "2001" #input("Password: ")
 
     # Estabelece a conexão SSH
     ssh_client = ssh_connect(hostname, port, username, password)
