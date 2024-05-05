@@ -63,9 +63,20 @@ class ShellHandler:
                 sherr.pop(0)
 
         return shin, shout, sherr
+
 if __name__=="__main__":
-    sh = ShellHandler("localhost","nany","2001")
-    r = sh.execute("neofetch")
-    output= r[1]
-    for o in output:
-        print(o)
+   host ="localhost"
+   user="nany"
+   passwd="2001"
+   sh = ShellHandler(host,user,passwd)
+   pwd = ""
+   while True:
+        command = input(f"{user}@{host}=>{pwd}$ ")
+        r = sh.execute(command)
+        output= r[1]
+        errout = r[2]
+        pwd = "".join(sh.execute("pwd")[1])
+        if len(output)>0:
+            print("".join(output))
+        if len(errout)>0:
+            print("".join(errout))
