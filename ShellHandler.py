@@ -28,8 +28,80 @@ class BaseGenie:
         self, wish: str, explain: bool, command: str, description: str, feedback: bool
     ):
         pass
+#aimodels.pys
+class GeminiModel(BaseGenie):
+    def __init__(self, 
+    api_key: str, 
+    os_fullname: str, 
+    shell: str, 
+    kernel_release: str):
 
+        self.os_fullname = os_fullname
+        self.shell = shell
+        self.kernel_release = kernel_release
+        self.gemini_api_key = api_key
 
+    def _build_prompt(self, wish: str, explain: bool = False):
+        explain_text = ""
+        format_text = "Command: <escreva_o_comando_aqui>"
+
+        if explain:
+            explain_text = (
+                "Escreva detalhadamente a descrição por detrás do comando que me enviou."
+            )
+            format_text += "\nDescri: <escreva_a_descrição_do_comando_aqui>\nA descrição do comando deve ser na mesma lingua que o utilizador está usando."
+        format_text += "\nNão inclua paretenses, chavetas ou aspas desnecessárias para o comando funcionar."
+
+        prompt_list = [
+            f"Intrução: Escreva um comando para o terminal que faz o seguinte: {wish}. Certifique-se de que este comando vai funcionar no sistema {self.os_fullname} com o shell {self.shell} e esta versão do kernel {self.kernel_release}. {explain_text}",
+            "Format:",
+            format_text,
+            "Certifique-se de que o formato da sua resposta seja exatamente essa que eu lhe passei.",
+        ]
+        prompt = "\n\n".join(prompt_list)
+        return prompt
+
+    def ask(self, wish: str, explain: bool = False):
+        prompt = self._build_prompt(wish, explain)
+        #,
+        API_KEY = self.gemini_api_key
+        url = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=" + API_KEY
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "contents": [
+                {
+                    "role": "system",
+                    "parts": [
+                        {
+                            "text": "voçê é um ferramenta de linha de comando, gere comandos de CLI para o utilizador."
+                        }
+                    ],
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ]
+        }
+
+        response = requests.post(url, headers=headers, json=data)
+        data = response.json()
+        text_content = data['candidates'][0]['content']['parts'][0]['text']
+        ar = text_content.split("\n")
+        descri=None
+        command=ar[0].split(":")[1]
+        if len(ar)>2:
+            descri=ar[1].split(":")[1]
+        return command,descri
+
+        
+#aimodels.pys
 class OpenAIModel(BaseGenie):
     def __init__(self, 
     api_key: str, 
@@ -188,13 +260,15 @@ class ShellHandler:
 # core.py
 def init(sh : ShellHandler):
     backend = Prompt.ask(
-        "Selecione a IA:", choices=["openai-gpt-3.5-turbo", "alpaca", "llama3"]
+        "Selecione a IA:", choices=["openai-gpt-3.5-turbo", "alpaca", "llama3","google-gemini"]
     )
     additional_params = {}
 
     # A escolha de qual modelo usar
     if backend == "openai-gpt-3.5-turbo":
         additional_params["openai_api_key"] = Prompt.ask("Introduza Chave da OpenAI API")
+    if backend == "google-gemini":
+        additional_params["gemini_api_key"] = Prompt.ask("Introduza Chave do Google Gemini")
 
     if backend == "alpaca":
         print(
@@ -254,6 +328,13 @@ def get_backend(**config: dict):
             shell=config["shell"],
             kernel_release=config["kernel_release"]
         )
+    if backend_name == "google-gemini":
+        return GeminiModel(
+            api_key=config["gemini_api_key"],
+            os_fullname=config["description"],
+            shell=config["shell"],
+            kernel_release=config["kernel_release"]
+        )
     else:
         raise ValueError(f"Unknown backend: {backend_name}")
 
@@ -276,8 +357,9 @@ def ask(wish,explain,path,config_file_name):
 
     if description:
         print(f"[bold]Description:[/bold] {description}")
+    return command
 
-    execute = Confirm.ask("Voçê quer executar este comando?")
+    """execute = Confirm.ask("Voçê quer executar este comando?")
     if execute:
         subprocess.run(command, shell=True)
         feedback = False
@@ -292,27 +374,39 @@ def ask(wish,explain,path,config_file_name):
                 command=command,
                 description=description,
                 feedback=feedback,
-            )
+            )"""
 
 
 if __name__=="__main__":
 
-   ask("ver a lista dos ficheiros desde directorio",False,"/home/vscode/PythonProjects/CopilotShell","debian.json")
-   """
-   host ="localhost"
+   
+   host = Prompt.ask("Introduza o Ip  ")
+   user = Prompt.ask("Introduza o utilizador  ")
+   passwd = Prompt.ask("Introduza a Senha  ")
+   """host ="localhost"
    user="nany"
    passwd="2001"
    sh = ShellHandler(host,user,passwd)
-   pwd = ""
-   init(sh)
-   
-   while True:
-        command = input(f"{user}@{host}=>{pwd}$ ")
-        r = sh.execute(command)
-        output= r[1]
-        errout = r[2]
-        pwd = "".join(sh.execute("pwd")[1])
-        if len(output)>0:
-            print("".join(output))
-        if len(errout)>0:
-            print("".join(errout))"""
+   r = ask("liste os ficheiros desde directorio",False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json",sh)
+   print(r)
+   """
+   co = Confirm.ask("Deseja fazer a connecção SSH com a máquina?")
+   if co:
+    print("[yellow]Conectando...[/yellow]") 
+    print(f"[green]Conectado a {host} [/green]") 
+    sh = ShellHandler(host,user,passwd)
+    pwd = ""
+    #init(sh)
+    while True:
+            instrucao = input(f"{user}@{host}=>{pwd}(AI)$ ")
+            if not instrucao:
+                continue
+            cmd = ask(instrucao,False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json")
+            r = sh.execute(cmd)
+            output= r[1]
+            errout = r[2]
+            pwd = "".join(sh.execute("pwd")[1])
+            if len(output)>0:
+                print("".join(output))
+            if len(errout)>0:
+                print("".join(errout))
