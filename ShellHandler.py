@@ -197,10 +197,10 @@ def detectOperationSystem(sh):
 #here
 class ShellHandler:
 
-    def __init__(self, host, user, psw):
+    def __init__(self, host, user, psw,port):
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.ssh.connect(host, username=user, password=psw, port=22)
+        self.ssh.connect(host, username=user, password=psw, port=port,look_for_keys=False)
 
         channel = self.ssh.invoke_shell()
         self.stdin = channel.makefile('wb')
@@ -338,7 +338,7 @@ def get_backend(**config: dict):
     else:
         raise ValueError(f"Unknown backend: {backend_name}")
 
-
+#
 #core.py
 def ask(wish,explain,path,config_file_name):
     config_path = Path(path) / config_file_name
@@ -378,34 +378,36 @@ def ask(wish,explain,path,config_file_name):
 
 
 if __name__=="__main__":
-
-   
    host = Prompt.ask("Introduza o Ip  ")
    user = Prompt.ask("Introduza o utilizador  ")
    passwd = Prompt.ask("Introduza a Senha  ")
-   """host ="localhost"
-   user="nany"
-   passwd="2001"
+   port = Prompt.ask("Introduza a Porta  ")
+   """
+   #host ="localhost"
+   #user="nany"
+   #passwd="2001"
    sh = ShellHandler(host,user,passwd)
-   r = ask("liste os ficheiros desde directorio",False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json",sh)
-   print(r)
+   #r = ask("liste os ficheiros desde directorio",False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json",sh)
+   #print(r)
    """
    co = Confirm.ask("Deseja fazer a connecção SSH com a máquina?")
    if co:
     print("[yellow]Conectando...[/yellow]") 
-    print(f"[green]Conectado a {host} [/green]") 
-    sh = ShellHandler(host,user,passwd)
+    sh = ShellHandler(host,user,passwd,int(port))
+    print(f"[green]Conectado a {host} [/green]")
     pwd = ""
     #init(sh)
     while True:
-            instrucao = input(f"{user}@{host}=>{pwd}(AI)$ ")
+            #instrucao = input(f"{user}@{host}=>{pwd}(AI)$ ")
+            instrucao = input(f"{user}@{host}=>(AI)$ ")
             if not instrucao:
                 continue
-            cmd = ask(instrucao,False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json")
-            r = sh.execute(cmd)
+            #cmd = ask(instrucao,False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json")
+            #r = sh.execute(cmd)
+            r = sh.execute(instrucao)
             output= r[1]
             errout = r[2]
-            pwd = "".join(sh.execute("pwd")[1])
+            #pwd = "".join(sh.execute("pwd")[1])
             if len(output)>0:
                 print("".join(output))
             if len(errout)>0:
