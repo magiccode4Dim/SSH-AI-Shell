@@ -1,7 +1,7 @@
 
 
 from __future__ import print_function
-
+from rich import print as pt
 import paramiko
 import sys
 import os
@@ -13,30 +13,9 @@ import tty
 
 
 def open_shell(connection, remote_name='SSH server'):
-    """
-    Opens a PTY on a remote server, and allows interactive commands to be run.
-    Reassigns stdin to the PTY so that it functions like a full shell, as would
-    be given by the OpenSSH client.
-
-    Differences between the behavior of OpenSSH and the existing Paramiko
-    connection can cause mysterious errors, especially with respect to
-    authentication. By keeping the entire SSH2 connection within Paramiko, such
-    inconsistencies are eliminated.
-
-    Args:
-        @connection
-        A live paramiko SSH connection to the remote host.
-
-    KWArgs:
-        @remote_name="SSH server"
-        The name to use to refer to the remote host during the connection
-        closed message. Typically a valid FQDN or IP addr.
-    """
-
     # get the current TTY attributes to reapply after
     # the remote shell is closed
     oldtty_attrs = termios.tcgetattr(sys.stdin)
-
     # invoke_shell with default options is vt100 compatible
     # which is exactly what you want for an OpenSSH imitation
     channel = connection.invoke_shell()
@@ -54,13 +33,14 @@ def open_shell(connection, remote_name='SSH server'):
 
     # wrap the whole thing in a try/finally construct to ensure
     # that exiting code for TTY handling runs
-    user_input_buffer = ""
+    
     try:
         stdin_fileno = sys.stdin.fileno()
         tty.setraw(stdin_fileno)
         tty.setcbreak(stdin_fileno)
 
         channel.settimeout(0.0)
+        user_input_buffer = ""
 
         is_alive = True
 
@@ -100,28 +80,42 @@ def open_shell(connection, remote_name='SSH server'):
                 # this is typically human input, so sending it one character at
                 # a time is the only correct action we can take
 
-                char = os.read(stdin_fileno, 1024)
+                char = os.read(stdin_fileno, 1)
 
                 # Se algum caractere foi lido
                 if char:
-                    # Adiciona os caracteres ao buffer
-                    user_input_buffer += char.decode('utf-8')
+                    c = char.decode('utf-8')
+                    #pt(char)
 
-                    # Se o usuário insere o caractere especial para chamar a AI
-                    if user_input_buffer.strip() == "$":
-                        # Limpa o buffer para o próximo input
+                    # Se o caractere for Enter (\n)
+                    if c == '\n':
                         user_input_buffer = ""
-                        # Solicita a pergunta para a AI
-                        instrution = input("(AI): ")
-                   
-                        answer = instrution
-                        # Envia a resposta da AI para o canal SSH
-                        channel.send(answer.encode('utf-8'))
+                        channel.send(c)
+
+                    # Se o caractere for Backspace (\x08)
+                    elif char == b'\x7f':
+                        if user_input_buffer:  # Verifica se a variável não está vazia
+                            user_input_buffer = user_input_buffer[:-1]  # Remove o último caractere
+                        channel.send(c)
+
+                    # Se o caractere for $
+                    elif c == '$':
+                        # Processa o comando até $
+                        try:
+                            instru = user_input_buffer.split('"')[1]
+                            pt(f"\n[yellow]{instru}[/yellow]")
+                            user_input_buffer = ""
+                        except Exception as e:
+                            pt(f"[red]{e}[/red]")
+
+                    # Adiciona o caractere ao buffer
                     else:
+                        user_input_buffer += c
+
                         # Envia os caracteres para o canal SSH
-                        channel.send(user_input_buffer.encode('utf-8'))
-                        # Limpa o buffer para o próximo input
-                        user_input_buffer = ""
+                        channel.send(c)
+                    
+                    
 
         # close down the channel for send/recv
         # this is an explicit call most likely redundant with the operations
@@ -136,9 +130,9 @@ def open_shell(connection, remote_name='SSH server'):
         print('Paramiko channel to %s closed.' % remote_name)
 
 if __name__=="__main__":
-    hostname = 'localhost'
-    port = 22
-    username = 'nany'
+    hostname = '192.168.91.200'
+    port = 2223
+    username = 'admin'
     password = '2001'
     # Cria uma instância do cliente SSH
     ssh_client = paramiko.SSHClient()

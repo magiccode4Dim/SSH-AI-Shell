@@ -1,3 +1,14 @@
+#interstive shell
+from __future__ import print_function
+from rich import print as pt
+import sys
+import select
+import socket
+import termios
+import tty
+import traceback
+import time
+
 import paramiko
 import re
 import json
@@ -5,15 +16,23 @@ import os
 import subprocess
 from pathlib import Path
 
+
+
 import pyperclip
 import typer
-from rich import print
 from rich.prompt import Confirm, Prompt
 
 import openai
 import requests
 
 #from .utils import detectOperationSystem
+#utils.py
+def loading(t=10):
+    print("Carregando...", end='', flush=True)
+    for _ in range(t):
+        print(".", end='', flush=True)
+        time.sleep(0.2)  # Aguarda 0.2 segundos entre cada ponto
+    print(" Concluído!")
 
 #classes de conneccao com os modelos de AI
 #aimodels.py
@@ -90,7 +109,7 @@ class GeminiModel(BaseGenie):
             ]
         }
 
-        response = requests.post(url, headers=headers, json=data)
+        response = requests.post(url, headers=headers, json=data, timeout=15)
         data = response.json()
         text_content = data['candidates'][0]['content']['parts'][0]['text']
         ar = text_content.split("\n")
@@ -197,14 +216,16 @@ def detectOperationSystem(sh):
 #here
 class ShellHandler:
 
-    def __init__(self, host, user, psw,port):
+    def __init__(self, host, user, psw,port,look_for_keys=False):
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        self.ssh.connect(host, username=user, password=psw, port=port,look_for_keys=False)
+        self.ssh.connect(host, username=user, password=psw, port=port,look_for_keys=look_for_keys)
 
         channel = self.ssh.invoke_shell()
         self.stdin = channel.makefile('wb')
         self.stdout = channel.makefile('r')
+    def getConnection(self):
+        return self.ssh
 
     def __del__(self):
         self.ssh.close()
@@ -256,9 +277,170 @@ class ShellHandler:
                 sherr.pop(0)
 
         return shin, shout, sherr
+#core.py
+def ask(wish,explain,path,config_file_name):
+    config_path = Path(path) / config_file_name
+
+    with open(config_path, "r") as f:
+        config = json.load(f)
+
+    genie = get_backend(**config)
+    try:
+        command, description = genie.ask(wish, explain)
+    except Exception as e:
+        pt(f"[red]Error: {e}[/red]")
+        #traceback.print_exc()
+        command, description = None,None
+    if command:
+        pt(f"[bold] Command:[/bold] [yellow]{command}[/yellow]")
+
+    if description:
+        pt(f"[bold]Description:[/bold] {description}")
+    return command
+
+    """execute = Confirm.ask("Voçê quer executar este comando?")
+    if execute:
+        subprocess.run(command, shell=True)
+        feedback = False
+        try:
+            if config["training-feedback"]:
+                feedback = Confirm.ask("O comando funcionou?")
+        except KeyError:
+            pass
+        genie.post_execute(
+                wish=wish,
+                explain=explain,
+                command=command,
+                description=description,
+                feedback=feedback,
+            )"""
+
+
+#interative_shell.py
+def open_shell(connection, remote_name,confFilePath,confFile):
+    # get the current TTY attributes to reapply after
+    # the remote shell is closed
+    oldtty_attrs = termios.tcgetattr(sys.stdin)
+    # invoke_shell with default options is vt100 compatible
+    # which is exactly what you want for an OpenSSH imitation
+    channel = connection.invoke_shell()
+
+    def resize_pty():
+        # resize to match terminal size
+        tty_height, tty_width = \
+                subprocess.check_output(['stty', 'size']).split()
+
+        # try to resize, and catch it if we fail due to a closed connection
+        try:
+            channel.resize_pty(width=int(tty_width), height=int(tty_height))
+        except paramiko.ssh_exception.SSHException:
+            pass
+
+    # wrap the whole thing in a try/finally construct to ensure
+    # that exiting code for TTY handling runs
+    
+    try:
+        stdin_fileno = sys.stdin.fileno()
+        tty.setraw(stdin_fileno)
+        tty.setcbreak(stdin_fileno)
+
+        channel.settimeout(0.0)
+        user_input_buffer = ""
+
+        is_alive = True
+
+        while is_alive:
+            # resize on every iteration of the main loop
+            resize_pty()
+
+            # use a unix select call to wait until the remote shell
+            # and stdin are ready for reading
+            # this is the block until data is ready
+            read_ready, write_ready, exception_list = \
+                    select.select([channel, sys.stdin], [], [])
+
+            # if the channel is one of the ready objects, print
+            # it out 1024 chars at a time
+            if channel in read_ready:
+                # try to do a read from the remote end and print to screen
+                try:
+                    out = channel.recv(1024)
+
+                    # remote close
+                    if len(out) == 0:
+                        is_alive = False
+                    else:
+                        decoded_output = out.decode('utf-8')
+                        # imprima a string decodificada
+                        print(decoded_output, end='')
+                        sys.stdout.flush()
+
+                # do nothing on a timeout, as this is an ordinary condition
+                except socket.timeout:
+                    pass
+
+            # if stdin is ready for reading
+            if sys.stdin in read_ready and is_alive:
+                # send a single character out at a time
+                # this is typically human input, so sending it one character at
+                # a time is the only correct action we can take
+
+                char = os.read(stdin_fileno, 1024)
+
+                # Se algum caractere foi lido
+                if char:
+                    c = char.decode('utf-8')
+                    #pt(char)
+
+                    # Se o caractere for Enter (\n)
+                    if c == '\n':
+                        user_input_buffer = ""
+                        channel.send(c)
+
+                    # Se o caractere for Backspace (\x08)
+                    elif char == b'\x7f':
+                        if user_input_buffer:  # Verifica se a variável não está vazia
+                            user_input_buffer = user_input_buffer[:-1]  # Remove o último caractere
+                        channel.send(c)
+
+                    # Se o caractere for $
+                    elif ">shellask" in user_input_buffer:
+                        # Processa o comando até $
+                        try:
+                            #Pega a ultima instrucao entre aspas
+                            arr = user_input_buffer.split('"')
+                            instru = arr[len(arr)-2]
+                            #pt(f"\n[yellow]{instru}[/yellow]")
+                            r = ask(instru,False,confFilePath,confFile)
+                            if r:
+                                channel.send("\r\n"+r)
+                            user_input_buffer = ""
+                        except Exception as e:
+                            pt(f"\n[red]{e}[/red]")
+
+                    # Adiciona o caractere ao buffer
+                    else:
+                        user_input_buffer += c
+
+                        # Envia os caracteres para o canal SSH
+                        channel.send(c)
+                    
+                    
+
+        # close down the channel for send/recv
+        # this is an explicit call most likely redundant with the operations
+        # that caused an exit from the REPL, but unusual exit conditions can
+        # cause this to be reached uncalled
+        channel.shutdown(2)
+
+    # regardless of errors, restore the TTY to working order
+    # upon exit and print that connection is closed
+    finally:
+        termios.tcsetattr(sys.stdin, termios.TCSAFLUSH, oldtty_attrs)
+        print('Paramiko channel to %s closed.' % remote_name)
 
 # core.py
-def init(sh : ShellHandler):
+def init(sh, newdevice=False):
     backend = Prompt.ask(
         "Selecione a IA:", choices=["openai-gpt-3.5-turbo", "alpaca", "llama3","google-gemini"]
     )
@@ -271,28 +453,34 @@ def init(sh : ShellHandler):
         additional_params["gemini_api_key"] = Prompt.ask("Introduza Chave do Google Gemini")
 
     if backend == "alpaca":
-        print(
+        pt(
             "[red]Ainda em Desenvolvimento[/red]"
         )
         return
     if backend == "llama3":
-        print(
+        pt(
             "[red]Ainda em Desenvolvimento[/red]"
         )
         return
     # faz a deteccao de qual linux se trata
-    os_info = detectOperationSystem(sh)
-    os_info["backend"]=backend
+    if newdevice:
+        os_info = None
+    else:
+        os_info = detectOperationSystem(sh)
+    
 
     if os_info:
         if not Confirm.ask(f"O seu sistema operativo é {os_info['description']}?"):
             os_info["description"] = Prompt.ask("Qual é o seu sistema operativo e a versão (ex: Ubuntu 22.04)")
     else:
-        print(
+        os_info = dict()
+        pt(
             "[yellow]Não foi possivel Detectar o sistema operativo.[/yellow]"
         )
         os_info["description"] = Prompt.ask("Qual é o seu sistema operativo e a versão (ex: Ubuntu 22.04)")
-
+        os_info["kernel_release"] = Prompt.ask("Qual é a arquitetura do seu Sistema ? (ex: x86_64 )")
+        os_info["shell"] = Prompt.ask("Qual é o seu Shell ? (ex: bash )")
+    os_info["backend"]=backend
     os_info.update(additional_params)
     
 
@@ -300,8 +488,8 @@ def init(sh : ShellHandler):
     path = Prompt.ask("Introduza o caminho onde do ficheiro de configuração")
     config_path = Path(path) / name
 
-    print("O arquivo de configuração será salvo com as seguintes configurações:")
-    print(os_info)
+    pt("O arquivo de configuração será salvo com as seguintes configurações:")
+    pt(os_info)
 
     #config_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -310,13 +498,13 @@ def init(sh : ShellHandler):
             "Este ficheiro de configuração já existe. Pretende reescreve-lo?"
         )
         if not overwrite:
-            print("Ficheiro não sobre-escrito.")
+            pt("Ficheiro não sobre-escrito.")
             return
 
     with open(config_path, "w") as f:
         json.dump(os_info, f)
 
-    print(f"[bold green]Ficheiro salvo em {config_path}[/bold green]")
+    pt(f"[bold green]Ficheiro salvo em {config_path}[/bold green]")
 
 #utils.py
 def get_backend(**config: dict):
@@ -339,76 +527,32 @@ def get_backend(**config: dict):
         raise ValueError(f"Unknown backend: {backend_name}")
 
 #
-#core.py
-def ask(wish,explain,path,config_file_name):
-    config_path = Path(path) / config_file_name
 
-    with open(config_path, "r") as f:
-        config = json.load(f)
-
-    genie = get_backend(**config)
-    try:
-        command, description = genie.ask(wish, explain)
-    except Exception as e:
-        print(f"[red]Error: {e}[/red]")
-        return
-
-    print(f"[bold]Command:[/bold] [yellow]{command}[/yellow]")
-
-    if description:
-        print(f"[bold]Description:[/bold] {description}")
-    return command
-
-    """execute = Confirm.ask("Voçê quer executar este comando?")
-    if execute:
-        subprocess.run(command, shell=True)
-        feedback = False
-        try:
-            if config["training-feedback"]:
-                feedback = Confirm.ask("O comando funcionou?")
-        except KeyError:
-            pass
-        genie.post_execute(
-                wish=wish,
-                explain=explain,
-                command=command,
-                description=description,
-                feedback=feedback,
-            )"""
 
 
 if __name__=="__main__":
-   host = Prompt.ask("Introduza o Ip  ")
-   user = Prompt.ask("Introduza o utilizador  ")
-   passwd = Prompt.ask("Introduza a Senha  ")
-   port = Prompt.ask("Introduza a Porta  ")
-   """
-   #host ="localhost"
-   #user="nany"
-   #passwd="2001"
-   sh = ShellHandler(host,user,passwd)
+   #host = Prompt.ask("Introduza o Ip  ")
+   #user = Prompt.ask("Introduza o utilizador  ")
+   #passwd = Prompt.ask("Introduza a Senha  ")
+   #port = Prompt.ask("Introduza a Porta  ")
+   #
+   host ="192.168.154.200"
+   user="admin"
+   passwd="2001"
+   port = 2223
    #r = ask("liste os ficheiros desde directorio",False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json",sh)
    #print(r)
-   """
+   #init(None,newdevice=True)
+   
    co = Confirm.ask("Deseja fazer a connecção SSH com a máquina?")
    if co:
-    print("[yellow]Conectando...[/yellow]") 
+    pt("[yellow]Conectando...[/yellow]") 
     sh = ShellHandler(host,user,passwd,int(port))
-    print(f"[green]Conectado a {host} [/green]")
-    pwd = ""
-    #init(sh)
-    while True:
-            #instrucao = input(f"{user}@{host}=>{pwd}(AI)$ ")
-            instrucao = input(f"{user}@{host}=>(AI)$ ")
-            if not instrucao:
-                continue
-            #cmd = ask(instrucao,False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json")
-            #r = sh.execute(cmd)
-            r = sh.execute(instrucao)
-            output= r[1]
-            errout = r[2]
-            #pwd = "".join(sh.execute("pwd")[1])
-            if len(output)>0:
-                print("".join(output))
-            if len(errout)>0:
-                print("".join(errout))
+    pt(f"[green]Conectado a {host} [/green]")
+    #r = ask("liste os ficheiros desde directorio",False,"/home/vscode/PythonProjects/CopilotShell","microtik.json")
+    #print(r)
+    #print(sh.execute(r))
+    ssh_client = sh.getConnection()
+    open_shell(ssh_client,"Ssh Server","/home/vscode/PythonProjects/CopilotShell","microtik.json")
+ 
+    
