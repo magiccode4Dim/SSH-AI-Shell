@@ -1,3 +1,6 @@
+def pp():
+    print("aaaa")
+
 def detectOperationSystem(sh):
     dados = "".join(sh.execute("uname -a && lsb_release -a")[1])
     info_sistema = {}

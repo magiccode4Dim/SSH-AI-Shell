@@ -42,7 +42,9 @@ class BaseGenie:
 
     def ask(self, wish: str, explain: bool = False):
         raise NotImplementedError
-
+    
+    def explainOut(self, wish: str, explain: bool = False):
+        raise NotImplementedError
     def post_execute(
         self, wish: str, explain: bool, command: str, description: str, feedback: bool
     ):
@@ -59,8 +61,20 @@ class GeminiModel(BaseGenie):
         self.shell = shell
         self.kernel_release = kernel_release
         self.gemini_api_key = api_key
+    def _build_explanation_prompt(self, promptdata):
+        explain_text = ""
+        format_text = "Description: <escreva_a_descricao_aqui>"
+        format_text += "\nResuma a descricao de forma mais simples e directa possivel."
 
-    def _build_prompt(self, wish: str, explain: bool = False):
+        prompt_list = [
+            f"Intrução: Faca uma descricao explicando detalhadamente o que significa este output de terminal: {promptdata}. Explique se existe algum problema no output que de certa forma pode causar vulnerabilidades de seguranca ou problemas relacionados a performace do aparelho. Se o output indicar a existencia de algum erro aconselhe a como resolver {explain_text}",
+            "Format:",
+            format_text,
+            "Certifique-se de que o formato da sua resposta seja exatamente essa que eu lhe passei.",
+        ]
+        prompt = "\n\n".join(prompt_list)
+        return prompt
+    def _build_prompt(self, wish: str, explain: bool):
         explain_text = ""
         format_text = "Command: <escreva_o_comando_aqui>"
 
@@ -79,6 +93,39 @@ class GeminiModel(BaseGenie):
         ]
         prompt = "\n\n".join(prompt_list)
         return prompt
+    def explainOut(self, promptdata):
+        prompt = self._build_explanation_prompt(promptdata)
+        API_KEY = self.gemini_api_key
+        url = "https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=" + API_KEY
+
+        headers = {
+            "Content-Type": "application/json"
+        }
+
+        data = {
+            "contents": [
+                {
+                    "role": "system",
+                    "parts": [
+                        {
+                            "text": "voçê é um ferramenta que explica output gerado em terminais. Explique ao utilizador, o significado do output que lhe envia"
+                        }
+                    ],
+                    "role": "user",
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ]
+        }
+
+        response = requests.post(url, headers=headers, json=data, timeout=15)
+        data = response.json()
+        text_content = data['candidates'][0]['content']['parts'][0]['text']
+
+        return text_content
 
     def ask(self, wish: str, explain: bool = False):
         prompt = self._build_prompt(wish, explain)
@@ -115,7 +162,7 @@ class GeminiModel(BaseGenie):
         ar = text_content.split("\n")
         descri=None
         command=ar[0].split(":")[1]
-        if len(ar)>2:
+        if len(ar)==2:
             descri=ar[1].split(":")[1]
         return command,descri
 
@@ -152,6 +199,8 @@ class OpenAIModel(BaseGenie):
         ]
         prompt = "\n\n".join(prompt_list)
         return prompt
+    def explainOut(self, wish: str, explain: bool = False):
+        return None
 
     def ask(self, wish: str, explain: bool = False):
         prompt = self._build_prompt(wish, explain)
@@ -291,11 +340,12 @@ def ask(wish,explain,path,config_file_name):
         pt(f"[red]Error: {e}[/red]")
         #traceback.print_exc()
         command, description = None,None
-    if command:
+    if command and description :
+        d= description.replace("\n"," ")
+        pt(f"[bold] Command:[/bold] [yellow]{command}[/yellow]. [bold]Description:[/bold] {d} ")
+    elif command:
         pt(f"[bold] Command:[/bold] [yellow]{command}[/yellow]")
 
-    if description:
-        pt(f"[bold]Description:[/bold] {description}")
     return command
 
     """execute = Confirm.ask("Voçê quer executar este comando?")
@@ -417,7 +467,18 @@ def open_shell(connection, remote_name,confFilePath,confFile):
                             user_input_buffer = ""
                         except Exception as e:
                             pt(f"\n[red]{e}[/red]")
-
+                    elif ">shellexplain" in user_input_buffer:
+                        try:
+                            #Pega a ultima instrucao entre aspas
+                            arr = user_input_buffer.split('"')
+                            instru = arr[len(arr)-2]
+                            #pt(f"\n[yellow]{instru}[/yellow]")
+                            r = ask(instru,True,confFilePath,confFile)
+                            if r:
+                                channel.send("\r\n"+r)
+                            user_input_buffer = ""
+                        except Exception as e:
+                            pt(f"\n[red]{e}[/red]")
                     # Adiciona o caractere ao buffer
                     else:
                         user_input_buffer += c
@@ -536,10 +597,10 @@ if __name__=="__main__":
    #passwd = Prompt.ask("Introduza a Senha  ")
    #port = Prompt.ask("Introduza a Porta  ")
    #
-   host ="192.168.154.200"
-   user="admin"
+   host ="localhost"
+   user="nany"
    passwd="2001"
-   port = 2223
+   port = 22
    #r = ask("liste os ficheiros desde directorio",False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json",sh)
    #print(r)
    #init(None,newdevice=True)
@@ -553,6 +614,6 @@ if __name__=="__main__":
     #print(r)
     #print(sh.execute(r))
     ssh_client = sh.getConnection()
-    open_shell(ssh_client,"Ssh Server","/home/vscode/PythonProjects/CopilotShell","microtik.json")
+    open_shell(ssh_client,"Ssh Server","/home/vscode/PythonProjects/CopilotShell","debianlocal.json")
  
     

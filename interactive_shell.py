@@ -86,7 +86,7 @@ def open_shell(connection, remote_name='SSH server'):
                 if char:
                     c = char.decode('utf-8')
                     #pt(char)
-
+                    print(lastOutput)
                     # Se o caractere for Enter (\n)
                     if c == '\n':
                         user_input_buffer = ""
@@ -130,9 +130,9 @@ def open_shell(connection, remote_name='SSH server'):
         print('Paramiko channel to %s closed.' % remote_name)
 
 if __name__=="__main__":
-    hostname = '192.168.91.200'
-    port = 2223
-    username = 'admin'
+    hostname = 'localhost'
+    port = 22
+    username = 'nany'
     password = '2001'
     # Cria uma instância do cliente SSH
     ssh_client = paramiko.SSHClient()
