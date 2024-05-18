@@ -43,7 +43,7 @@ class BaseGenie:
     def ask(self, wish: str, explain: bool = False):
         raise NotImplementedError
     
-    def explainOut(self, wish: str, explain: bool = False):
+    def explainOut(self, promptdata):
         raise NotImplementedError
     def post_execute(
         self, wish: str, explain: bool, command: str, description: str, feedback: bool
@@ -62,13 +62,12 @@ class GeminiModel(BaseGenie):
         self.kernel_release = kernel_release
         self.gemini_api_key = api_key
     def _build_explanation_prompt(self, promptdata):
-        explain_text = ""
-        format_text = "Description: <escreva_a_descricao_aqui>"
-        format_text += "\nResuma a descricao de forma mais simples e directa possivel."
+        explain_text = f"Certifique-se de que a sua descricao tera em conta que o sistema é {self.os_fullname} com o shell {self.shell} e a versão do kernel {self.kernel_release}"
+        format_text = "<subtitulo>: <conteudo> Exemplo: Seguranca:existe problema xyz.."
 
         prompt_list = [
-            f"Intrução: Faca uma descricao explicando detalhadamente o que significa este output de terminal: {promptdata}. Explique se existe algum problema no output que de certa forma pode causar vulnerabilidades de seguranca ou problemas relacionados a performace do aparelho. Se o output indicar a existencia de algum erro aconselhe a como resolver {explain_text}",
-            "Format:",
+            f"Intrução: Faca uma descricao explicando detalhadamente o que significa este output de terminal: {promptdata}(concidere somente o output originado depois que o usuario inseriu o ultimo comando no sistema).{explain_text}. Nao volte a reescrever o output na descricao. Explique se existe algum problema no output que de certa forma pode causar vulnerabilidades de seguranca ou problemas relacionados a performace do sistema operativo. Se o output indicar a existencia de algum erro aconselhe a como resolver.",
+            "Formato da resposta:",
             format_text,
             "Certifique-se de que o formato da sua resposta seja exatamente essa que eu lhe passei.",
         ]
@@ -199,7 +198,7 @@ class OpenAIModel(BaseGenie):
         ]
         prompt = "\n\n".join(prompt_list)
         return prompt
-    def explainOut(self, wish: str, explain: bool = False):
+    def explainOut(self, promptdata):
         return None
 
     def ask(self, wish: str, explain: bool = False):
@@ -327,6 +326,24 @@ class ShellHandler:
 
         return shin, shout, sherr
 #core.py
+def explainOut(promptdata,path,config_file_name):
+    config_path = Path(path) / config_file_name
+
+    with open(config_path, "r") as f:
+        config = json.load(f)
+
+    genie = get_backend(**config)
+    try:
+        description = genie.explainOut(promptdata)
+    except Exception as e:
+        pt(f"[red]Error: {e}[/red]")
+        #traceback.print_exc()
+        description = None
+    if  description :
+        d= description.replace("\n"," ")
+        pt(f" [bold]Explanation:[/bold] {d} ")
+
+#core.py
 def ask(wish,explain,path,config_file_name):
     config_path = Path(path) / config_file_name
 
@@ -395,7 +412,10 @@ def open_shell(connection, remote_name,confFilePath,confFile):
         tty.setcbreak(stdin_fileno)
 
         channel.settimeout(0.0)
+        #aquilo que o usuario escreve
         user_input_buffer = ""
+        #aquilo que o terminal imprime
+        lastoutput = ""
 
         is_alive = True
 
@@ -423,6 +443,7 @@ def open_shell(connection, remote_name,confFilePath,confFile):
                         decoded_output = out.decode('utf-8')
                         # imprima a string decodificada
                         print(decoded_output, end='')
+                        lastoutput+= decoded_output
                         sys.stdout.flush()
 
                 # do nothing on a timeout, as this is an ordinary condition
@@ -464,9 +485,13 @@ def open_shell(connection, remote_name,confFilePath,confFile):
                             r = ask(instru,False,confFilePath,confFile)
                             if r:
                                 channel.send("\r\n"+r)
-                            user_input_buffer = ""
                         except Exception as e:
                             pt(f"\n[red]{e}[/red]")
+                            channel.send("\r\n")
+                        finally:
+                            user_input_buffer = ""
+                            lastoutput = ""
+                            
                     elif ">shellexplain" in user_input_buffer:
                         try:
                             #Pega a ultima instrucao entre aspas
@@ -476,10 +501,25 @@ def open_shell(connection, remote_name,confFilePath,confFile):
                             r = ask(instru,True,confFilePath,confFile)
                             if r:
                                 channel.send("\r\n"+r)
-                            user_input_buffer = ""
                         except Exception as e:
                             pt(f"\n[red]{e}[/red]")
-                    # Adiciona o caractere ao buffer
+                            channel.send("\r\n")
+                        finally:
+                            user_input_buffer = ""
+                            lastoutput = ""
+                            
+                    elif ">explainoutput" in user_input_buffer:
+                        try:
+                            lastoutput = lastoutput.replace(">explainoutput","")
+                            #print(f"[{lastoutput}]")
+                            explainOut(lastoutput,confFilePath,confFile)
+                            #o output sera limpo somente quando o codigo for executado com sucesso
+                            lastoutput = ""
+                        except Exception as e:
+                            pt(f"\n[red]{e}[/red]")
+                        finally:
+                            user_input_buffer = ""
+                            channel.send("\r\n")
                     else:
                         user_input_buffer += c
 
@@ -597,10 +637,10 @@ if __name__=="__main__":
    #passwd = Prompt.ask("Introduza a Senha  ")
    #port = Prompt.ask("Introduza a Porta  ")
    #
-   host ="localhost"
-   user="nany"
+   host ="192.168.12.200"
+   user="admin"
    passwd="2001"
-   port = 22
+   port = 2223
    #r = ask("liste os ficheiros desde directorio",False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json",sh)
    #print(r)
    #init(None,newdevice=True)
@@ -614,6 +654,6 @@ if __name__=="__main__":
     #print(r)
     #print(sh.execute(r))
     ssh_client = sh.getConnection()
-    open_shell(ssh_client,"Ssh Server","/home/vscode/PythonProjects/CopilotShell","debianlocal.json")
+    open_shell(ssh_client,"Ssh Server","/home/vscode/PythonProjects/CopilotShell","microtik.json")
  
     
