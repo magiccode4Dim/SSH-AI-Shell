@@ -637,10 +637,10 @@ if __name__=="__main__":
    #passwd = Prompt.ask("Introduza a Senha  ")
    #port = Prompt.ask("Introduza a Porta  ")
    #
-   host ="192.168.12.200"
-   user="admin"
+   host ="localhost"
+   user="nany"
    passwd="2001"
-   port = 2223
+   port = 22
    #r = ask("liste os ficheiros desde directorio",False,"/home/vscode/PythonProjects/CopilotShell","debianlocal.json",sh)
    #print(r)
    #init(None,newdevice=True)
@@ -654,6 +654,6 @@ if __name__=="__main__":
     #print(r)
     #print(sh.execute(r))
     ssh_client = sh.getConnection()
-    open_shell(ssh_client,"Ssh Server","/home/vscode/PythonProjects/CopilotShell","microtik.json")
+    open_shell(ssh_client,"Ssh Server","/home/vscode/PythonProjects/CopilotShell","debianlocal.json")
  
     
