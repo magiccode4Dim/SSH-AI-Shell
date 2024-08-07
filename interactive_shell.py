@@ -11,7 +11,7 @@ import tty
 from core import *
 
 #interative_shell.py
-def open_shell(connection, remote_name,confFilePath,confFile):
+def open_shell(connection, remote_name,config_file_path):
     # get the current TTY attributes to reapply after
     # the remote shell is closed
     oldtty_attrs = termios.tcgetattr(sys.stdin)
@@ -109,7 +109,7 @@ def open_shell(connection, remote_name,confFilePath,confFile):
                             arr = user_input_buffer.split('"')
                             instru = arr[len(arr)-2]
                             #pt(f"\n[yellow]{instru}[/yellow]")
-                            r = ask(instru,False,confFilePath,confFile)
+                            r = ask(instru,False,config_file_path)
                             if r:
                                 channel.send("\r\n"+r)
                         except Exception as e:
@@ -125,7 +125,7 @@ def open_shell(connection, remote_name,confFilePath,confFile):
                             arr = user_input_buffer.split('"')
                             instru = arr[len(arr)-2]
                             #pt(f"\n[yellow]{instru}[/yellow]")
-                            r = ask(instru,True,confFilePath,confFile)
+                            r = ask(instru,True,config_file_path)
                             if r:
                                 channel.send("\r\n"+r)
                         except Exception as e:
@@ -139,7 +139,7 @@ def open_shell(connection, remote_name,confFilePath,confFile):
                         try:
                             lastoutput = lastoutput.replace(">explainoutput","")
                             #print(f"[{lastoutput}]")
-                            explainOut(lastoutput,confFilePath,confFile)
+                            explainOut(lastoutput,config_file_path)
                             #o output sera limpo somente quando o codigo for executado com sucesso
                             lastoutput = ""
                         except Exception as e:

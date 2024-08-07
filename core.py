@@ -12,8 +12,8 @@ from ShellHandler import ShellHandler
 from utils import *
 
 #core.py
-def explainOut(promptdata,path,config_file_name):
-    config_path = Path(path) / config_file_name
+def explainOut(promptdata,config_file_path):
+    config_path = config_file_path
 
     with open(config_path, "r") as f:
         config = json.load(f)
@@ -30,8 +30,8 @@ def explainOut(promptdata,path,config_file_name):
         pt(f" [bold]Explanation:[/bold] {d} ")
 
 #core.py
-def ask(wish,explain,path,config_file_name):
-    config_path = Path(path) / config_file_name
+def ask(wish,explain,config_file_path):
+    config_path = config_file_path
 
     with open(config_path, "r") as f:
         config = json.load(f)
@@ -110,22 +110,3 @@ def init(sh, newdevice=False):
 
     pt(f"[bold green]Ficheiro salvo em {config_path}[/bold green]")
 
-
-if __name__=="__main__":
-   host ="localhost"
-   user="nany"
-   passwd="2001"
-   sh = ShellHandler(host,user,passwd)
-   pwd = ""
-   init(sh)
-   """
-   while True:
-        command = input(f"{user}@{host}=>{pwd}$ ")
-        r = sh.execute(command)
-        output= r[1]
-        errout = r[2]
-        pwd = "".join(sh.execute("pwd")[1])
-        if len(output)>0:
-            print("".join(output))
-        if len(errout)>0:
-            print("".join(errout))"""
