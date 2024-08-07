@@ -50,7 +50,7 @@ EXEMPLO:
 
 ## Desinstalar
 ```bash
-./unnistal.sh
+./unnistall.sh
 ```
 ## CRÉDITOS
 As bases deste projeto são os repositórios [Shell Genie](https://github.com/dylanjcastillo/shell-genie) e [paramiko shell](https://github.com/sirosen/paramiko-shell).
