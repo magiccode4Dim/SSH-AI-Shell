@@ -36,7 +36,19 @@ O utilizador passa a enviar prompts depois que conecte-se a maquina remota usand
 
 * 'prompt'>shellask - Envia um prompt para a IA e recebe a resposta em comando.
 EXEMPLO:
-
+![image](https://github.com/user-attachments/assets/7fd6c9da-adc2-4d37-a29d-002820733396)
+![image](https://github.com/user-attachments/assets/baaa9844-a221-423b-be96-8ac4794ef40c)
 
 * 'prompt'>shellexplain - A IA deve explicar o que o comando do prompt deve fazer.
+EXEMPLO:
+![image](https://github.com/user-attachments/assets/b8aca4a4-395c-41b5-b7a9-d74bb14bd309)
+
 * ''>explainoutput - Explica o output do terminal
+![image](https://github.com/user-attachments/assets/9dc6e559-2303-4f1c-96d6-e68dc1ca379e)
+
+## Desinstalar
+```bash
+./unnistal.sh
+```
+
+
