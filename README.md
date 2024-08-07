@@ -17,8 +17,26 @@ Requisitos:
 e executar o script ssh_ai_shell.sh presente no directorio raiz.
 
 ## Como Utilizar?
-Para utilizar, o usuário deve primeiro, criar um arquivo de ficheiro de configuração onde estarão presentes todos os dados sobre as caracteristicas da máquina, e do modelo de LLM a ser utilizado. O utilizador passa a enviar prompts depois que conecte-se a maquina remota usando o comando ***'connect'***. Estando conectado, existem 3 modos de operação: 
+Para utilizar, o usuário deve primeiro, criar um arquivo de ficheiro de configuração onde estarão presentes todos os dados sobre as caracteristicas da máquina, e do modelo de LLM a ser utilizado.
+
+1. **Criando ficheiro de configuração Para um servidor Debian 10 (ssh), usando AI Google Gemini**
+```bash
+ssh_ai_shell newconfig --ssh
+```
+![image](https://github.com/user-attachments/assets/efa05942-b3fa-4fca-8425-a42244994d92)
+
+3. **Criando ficheiro de configuração Manualmente para um rooteador Microtik (--no-ssh), usando AI Google Gemini**
+```bash
+ssh_ai_shell newconfig
+```
+![image](https://github.com/user-attachments/assets/96589111-d64d-47da-86b2-5b16dedc2412)
+
+
+O utilizador passa a enviar prompts depois que conecte-se a maquina remota usando o comando ***'connect'***. Estando conectado, existem 3 modos de operação: 
 
 * 'prompt'>shellask - Envia um prompt para a IA e recebe a resposta em comando.
+EXEMPLO:
+
+
 * 'prompt'>shellexplain - A IA deve explicar o que o comando do prompt deve fazer.
-* >explainoutput - Explica o output do terminal
+* ''>explainoutput - Explica o output do terminal
