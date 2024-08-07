@@ -32,23 +32,28 @@ ssh_ai_shell newconfig
 ![image](https://github.com/user-attachments/assets/96589111-d64d-47da-86b2-5b16dedc2412)
 
 
-O utilizador passa a enviar prompts depois que conecte-se a maquina remota usando o comando ***'connect'***. Estando conectado, existem 3 modos de operação: 
+O utilizador passa a enviar prompts depois que conecta-se a maquina remota usando o comando ***'connect'***. Estando conectado, existem 3 modos de operação: 
 
 * 'prompt'>shellask - Envia um prompt para a IA e recebe a resposta em comando.
 EXEMPLO:
 ![image](https://github.com/user-attachments/assets/7fd6c9da-adc2-4d37-a29d-002820733396)
+No rooteador microtik:
 ![image](https://github.com/user-attachments/assets/baaa9844-a221-423b-be96-8ac4794ef40c)
 
 * 'prompt'>shellexplain - A IA deve explicar o que o comando do prompt deve fazer.
 EXEMPLO:
 ![image](https://github.com/user-attachments/assets/b8aca4a4-395c-41b5-b7a9-d74bb14bd309)
 
-* ''>explainoutput - Explica o output do terminal
+* ''>explainoutput - Explica o output do terminal.
+EXEMPLO:
 ![image](https://github.com/user-attachments/assets/9dc6e559-2303-4f1c-96d6-e68dc1ca379e)
 
 ## Desinstalar
 ```bash
 ./unnistal.sh
 ```
+## CRÉDITOS
+As bases deste projeto são os repositórios [Shell Genie](https://github.com/dylanjcastillo/shell-genie) e [paramiko shell](https://github.com/sirosen/paramiko-shell).
 
+BY narcisopascoal97@gmail.com
 
